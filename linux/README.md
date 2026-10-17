@@ -19,7 +19,15 @@ The Python app that runs on the Linux side (QCS8275).
 
 ## Setup
 
-- Board: `pip install -r requirements.txt`. `arduino.app_utils` comes with App Lab, so it is not listed.
+- Board (no `python3-venv` package, so bootstrap pip by hand):
+  ```bash
+  python3 -m venv --without-pip .venv
+  curl -sS https://bootstrap.pypa.io/get-pip.py | .venv/bin/python
+  .venv/bin/pip install -r requirements.txt
+  # only for --cpu:
+  .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch && .venv/bin/pip install transformers
+  ```
 - Laptop (`--cpu` only): `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt torch transformers`.
+- `arduino.app_utils` (used by `main.py`) comes with App Lab, so it is not listed.
 
 Model files live in `$HOME/model_output` on the board, not in git. Override paths with `MODEL_OUTPUT`, `QNN_RUNNER`, or `DINO_PTE` if the bundle puts them elsewhere.
