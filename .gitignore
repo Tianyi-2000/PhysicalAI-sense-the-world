@@ -233,3 +233,7 @@ datasets/
 .DS_Store
 .vscode/
 .idea/
+
+# Web UI: dist/ is committed so the board doesn't need Node
+node_modules/
+!web/dist/

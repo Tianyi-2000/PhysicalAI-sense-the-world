@@ -7,7 +7,7 @@ The Python app that runs on the Linux side (QCS8275).
   python3 classify.py photo.jpg         # on the board (NPU)
   python3 classify.py photo.jpg --cpu   # on a laptop, same model on CPU
   ```
-- `server.py` + `index.html`: phone web page. Run `python3 server.py`, open `http://<board IP>:8000` on your phone, take a photo. Add `--cpu` on a laptop.
+- `server.py`: serves the web UI (`../web/dist`) and classifies uploaded photos. Run `python3 server.py`, then open `http://<board IP>:8000` on a phone and `http://<board IP>:8000/screen` on the big screen. Add `--cpu` on a laptop.
 - `imagenet_labels.txt`: the model's 1000 class names.
 - `main.py`: the App Lab loop. Right now it toggles the LED every second.
 - `msgpack_test.py`: toggles the LED directly, without App Lab. Keep the sketch running, stop `main.py` first, then:

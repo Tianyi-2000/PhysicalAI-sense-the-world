@@ -68,9 +68,11 @@ def run_cpu(x):
 
 
 def classify(image, top_k=5, backend="npu"):
-    """Return the top-k (label, probability) pairs plus model and end-to-end latency in ms."""
+    """Return the top-k (label, probability) pairs plus per-stage and end-to-end latency in ms."""
     start = time.perf_counter()
-    logits, model_ms = (run_cpu if backend == "cpu" else run_npu)(preprocess(image))
+    x = preprocess(image)
+    preprocess_ms = (time.perf_counter() - start) * 1000
+    logits, model_ms = (run_cpu if backend == "cpu" else run_npu)(x)
     if logits.size != len(LABELS):
         raise ValueError(f"Expected {len(LABELS)} logits, got {logits.size}; check the model's output")
     probs = np.exp(logits - logits.max())
@@ -79,6 +81,7 @@ def classify(image, top_k=5, backend="npu"):
     return {
         "top": [(LABELS[i], float(probs[i])) for i in top],
         "backend": backend,
+        "preprocess_ms": preprocess_ms,
         "model_ms": model_ms,
         "total_ms": (time.perf_counter() - start) * 1000,
     }
