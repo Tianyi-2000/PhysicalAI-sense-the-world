@@ -1,12 +1,13 @@
 export type Backend = "npu" | "cpu";
 
-/** One classification (see linux/classify.py). */
+/** One classification (see linux/classify.py and linux/server.py). */
 export interface ClassifyResult {
   top: [label: string, prob: number][];
   backend: Backend;
   preprocess_ms: number;
   model_ms: number;
   total_ms: number;
+  action_ms: number | null; // MCU round trip; null when no sketch answered (e.g. on a laptop)
 }
 
 /** One photo the server has classified (see linux/server.py). */

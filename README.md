@@ -24,13 +24,16 @@ Sensors / actuators ↔ STM32H5F5 ↔ Arduino Bridge / Router ↔ Linux applicat
 PhysicalAI-sense-the-world/
 ├── README.md
 ├── .gitignore
-├── mcu/                 # STM32 side: Arduino sketch
+├── mcu/                 # STM32 side: App Lab app (LED matrix + RGB LED)
 │   ├── README.md
-│   └── sketch.ino
+│   ├── app.yaml
+│   ├── python/main.py
+│   └── sketch/          # sketch.ino + sketch.yaml
 ├── linux/               # Linux side: Python app + inference
 │   ├── README.md
 │   ├── classify.py      # photo → DINOv2 on the NPU
-│   ├── server.py        # web server: UI + /classify
+│   ├── server.py        # web server: UI + /classify, then tells the MCU
+│   ├── mcu.py           # calls the sketch through the Router
 │   ├── imagenet_labels.txt
 │   ├── main.py
 │   ├── msgpack_test.py

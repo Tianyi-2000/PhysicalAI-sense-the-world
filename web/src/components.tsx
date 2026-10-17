@@ -54,7 +54,7 @@ interface Stage {
   role: string;
   ms?: number;
   hero?: boolean;
-  todo?: boolean;
+  offline?: boolean;
 }
 
 /** The board's chips as a flow diagram, with the time each one took. */
@@ -69,17 +69,22 @@ export function Pipeline({ result, roundTripMs, showUpload = false, busy = false
     ...(showUpload ? [upload] : []),
     { chip: dev ? "Laptop CPU" : "Linux CPU", role: "Preprocess", ms: result?.preprocess_ms },
     { chip: dev ? "Laptop CPU (dev)" : "Hexagon NPU", role: "DINOv2", ms: result?.model_ms, hero: true },
-    { chip: "STM32 MCU", role: "Buzzer + LED", todo: true },
+    {
+      chip: "STM32 MCU",
+      role: "LED matrix + RGB",
+      ms: result?.action_ms ?? undefined,
+      offline: result !== undefined && result.action_ms === null,
+    },
   ];
   return (
     <div className={`flow ${busy ? "running" : replay ? "replay" : ""}`}>
       {stages.map((s, i) => (
         <Fragment key={s.role}>
           {i > 0 && <div className="wire" style={{ "--i": i } as CSSProperties} />}
-          <div className={`node ${s.hero ? "hero" : ""} ${s.todo ? "todo" : ""}`} style={{ "--i": i } as CSSProperties}>
+          <div className={`node ${s.hero ? "hero" : ""} ${s.offline ? "offline" : ""}`} style={{ "--i": i } as CSSProperties}>
             <span className="chip">{s.chip}</span>
             <span className="role">{s.role}</span>
-            <span className="ms">{s.todo ? "next" : s.ms === undefined ? "–" : `${Math.round(s.ms)} ms`}</span>
+            <span className="ms">{s.offline ? "no MCU" : s.ms === undefined ? "–" : `${Math.round(s.ms)} ms`}</span>
           </div>
         </Fragment>
       ))}

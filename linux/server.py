@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+import mcu
 from classify import classify, load_cpu_model
 
 WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
@@ -82,10 +83,15 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path != "/classify" or not 0 < size <= MAX_UPLOAD:
             return self.send_json(400, {"error": "POST a photo to /classify"})
         photo = self.rfile.read(size)
+        mcu.call("show_thinking")
         try:
             result = classify(io.BytesIO(photo), backend=self.server.backend)
         except Exception as exc:
+            mcu.call("show_error")
             return self.send_json(500, {"error": str(exc)})
+        # Send the raw label and confidence; the sketch decides what to show (see mcu/sketch/sketch.ino).
+        label, prob = result["top"][0]
+        result["action_ms"] = mcu.call("show_result", label, round(prob * 100))
         self.send_json(200, self.server.session.add(photo, result))
 
     def send_json(self, status, payload):
