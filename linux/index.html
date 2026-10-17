@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sense the World</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; }
+  label { display: block; padding: 16px; text-align: center; background: #111; color: #fff; border-radius: 12px; font-size: 1.2rem; }
+  input { display: none; }
+  img { width: 100%; margin-top: 16px; border-radius: 12px; }
+  #status { color: #666; }
+</style>
+</head>
+<body>
+<h1>Sense the World</h1>
+<label>Take a photo<input id="photo" type="file" accept="image/*" capture="environment"></label>
+<img id="preview" alt="" hidden>
+<p id="status"></p>
+<ol id="top"></ol>
+<script>
+const $ = (id) => document.getElementById(id);
+
+$("photo").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  $("preview").src = URL.createObjectURL(file);
+  $("preview").hidden = false;
+  $("top").replaceChildren();
+  $("status").textContent = "Thinking...";
+  try {
+    const res = await fetch("/classify", { method: "POST", body: file });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    $("status").textContent =
+      `${data.backend.toUpperCase()} ${data.model_ms.toFixed(0)} ms, end-to-end ${data.total_ms.toFixed(0)} ms`;
+    for (const [label, prob] of data.top) {
+      const li = document.createElement("li");
+      li.textContent = `${label.split(",")[0]}: ${(prob * 100).toFixed(1)}%`;
+      $("top").append(li);
+    }
+  } catch (err) {
+    $("status").textContent = `Error: ${err.message}`;
+  }
+  event.target.value = "";
+});
+</script>
+</body>
+</html>
