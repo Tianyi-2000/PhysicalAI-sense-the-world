@@ -218,3 +218,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Models & data — never commit, get the bundle from the track team
+*.pte
+*.bin
+*.raw
+model_output/
+outputs/
+datasets/
+*.jpg
+*.png
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
