@@ -325,6 +325,7 @@ laptop/live_client.py       laptop: live demo view, full-rate video + prediction
 ml/depth_ml.py              board: DINOv2 embedding, training, calibration, evaluation, live predictor
 ml/export_et.py             board: ExecuTorch export (fp32 / int8), benchmark, accuracy check
 mcu/depth-sensor/sketch.ino MCU: reads the distance sensor, exposes get_distance() over Bridge
+mcu/sketch/sketch.ino       MCU: same get_distance(), plus the LED matrix and RGB LED (live_server.py --led)
 ```
 
 Data (`~/depth_data/`) and trained models (`ml/model/`, `*.pte`) stay on the board and are not in git.
@@ -347,6 +348,8 @@ Copy `linux/*.py` to `~/` and `ml/*.py` to `~/ml/` on the board (`adb push` or `
 ### 2. MCU sketch
 
 Open `mcu/depth-sensor/sketch.ino` in Arduino App Lab (add the Modulino and Arduino_RouterBridge libraries if prompted), plug the Modulino Distance into the Qwiic port, and run the app. Keep it running for every step below.
+
+For the live demo on the board's LEDs, run the `mcu/` app instead (see [mcu/README.md](mcu/README.md)). It provides the same `get_distance()`, and also shows the camera's estimate in cm on the LED matrix, with the RGB LED red (near), yellow (mid), or green (far).
 
 ### 3. Collect data (one session per object)
 
@@ -391,6 +394,7 @@ Board:
 ```bash
 python ~/live_server.py
 ```
+Add `--led` when the `mcu/` app is running, to show the estimate on the LED matrix and RGB LED.
 Laptop:
 ```bash
 adb forward tcp:5000 tcp:5000

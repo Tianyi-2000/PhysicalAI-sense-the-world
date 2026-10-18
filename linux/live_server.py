@@ -4,7 +4,8 @@ and a trained model in ~/ml/model/).
 For every frame from the laptop: read the distance sensor, run DINOv2 + head, reply with both.
 Logs every frame to ~/depth_data/live_log.csv so the live run can also be scored.
 
-Usage:  python live_server.py            (add --led once the sketch provides set_led(r, g, b))
+Usage:  python live_server.py            (add --led to show the prediction on the LED matrix and
+                                          RGB LED; needs the mcu/ app instead of mcu/depth-sensor)
 """
 import argparse
 import csv
@@ -30,7 +31,7 @@ def led_colour(mm):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=5000)
-    ap.add_argument("--led", action="store_true", help="call set_led(r, g, b) on the MCU")
+    ap.add_argument("--led", action="store_true", help="show the prediction on the MCU's LEDs")
     args = ap.parse_args()
 
     print("Loading model...")
@@ -67,8 +68,9 @@ def main():
                 if use_led:
                     try:
                         router.call("set_led", *led_colour(pred))
+                        router.call("show_distance", round(pred))
                     except Exception as e:
-                        print("set_led failed, disabling LED output:", e)
+                        print("LED output failed, disabling it:", e)
                         use_led = False
 
                 writer.writerow([f"{time.time():.3f}", sensor, f"{pred:.1f}", f"{infer_ms:.1f}"])
