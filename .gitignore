@@ -237,3 +237,8 @@ datasets/
 # Web UI: dist/ is committed so the board doesn't need Node
 node_modules/
 !web/dist/
+depth_data/
+ml/model/
+*.pte
+*.npz
+__pycache__/
