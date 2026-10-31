@@ -246,7 +246,9 @@ Chosen alpha = 10. Note that this validation **is itself an unseen-object test**
 
 ### What the plots show
 
-![Predicted vs real distance: same object vs unseen object](results/scatter_seen_vs_unseen.png)
+> **Note on the numbers.** These plots were made after the accuracy table above, from the same two test sets (220 and 159 frames), but their mean errors are different: 5.3 cm (seen object) and 19.1 cm (unseen object), plus 25.0 cm over 1,648 live frames. The table reports predictions *before* calibration, while `predict()` in `ml/depth_ml.py` applies calibration by default, so the plots most likely show *calibrated* predictions. If so, calibration made things worse on these test sets. We will confirm this and update the table and the plots together after the next evaluation run.
+
+![Predicted vs real distance: same object vs unseen object](results/scatter_seen_vs_unseen.svg)
 
 *Each dot is one camera frame. The dashed line is a perfect prediction; the grey band is within 5 cm of it. Both test sets were recorded separately from training.*
 
@@ -256,11 +258,11 @@ Chosen alpha = 10. Note that this validation **is itself an unseen-object test**
 
 **Shape of the errors.** Where points sit consistently above the line at short range and below it at long range, the model is compressing its range toward the average training distance, a known side effect of regularized linear regression. The calibration step (fit on out-of-fold training predictions) is designed to straighten this; comparing the calibrated and uncalibrated columns in the training output shows how much it helps.
 
-![Both test sets on one plot](results/scatter_combined.png)
+![Both test sets on one plot](results/scatter_combined.svg)
 
-**Overlaid**, the two sets share the same trend but differ in spread, which is the visual version of the gap between the 4.2 cm and 10.2 cm mean errors: same direction of learning, different reliability.
+**Overlaid**, the two sets share the same trend but differ in spread, which is the visual version of the gap between the two mean errors: same direction of learning, different reliability.
 
-![Live demo, every frame logged](results/scatter_live.png)
+![Live demo, every frame logged](results/scatter_live.svg)
 
 **Live demo.** Every frame shown during the live demo was logged with the sensor's reading, so the demo itself is a measured result rather than a staged one. Live conditions (moving objects, varying angle, hands in frame) make this the hardest and most honest test set. A small lag between the camera frame and the sensor reading also adds error when objects move quickly.
 
@@ -288,6 +290,7 @@ Chosen alpha = 10. Note that this validation **is itself an unseen-object test**
 - **Board (`live_server.py`):** for every incoming frame, reads the sensor, runs the ExecuTorch feature extractor and the regression head, and replies with the sensor reading, the prediction, and the inference time. Every frame is also logged to `~/depth_data/live_log.csv`, so a live session can be scored afterward.
 - **Laptop (`live_client.py`):** shows the webcam at full frame rate. A background thread always sends the **newest** frame to the board and overlays the latest prediction, so old frames never queue up. Predictions update ~3 to 4 times per second; the displayed value is lightly smoothed.
 - **"Sensor covered" mode:** when the sensor reads outside 50 to 1200 mm, the UI shows "Sensor: covered" and the camera's estimate keeps running.
+- **Board LEDs (`--led`, needs the `mcu/` app):** for every frame, the LED matrix shows the camera's estimate in cm, and the RGB LED shows near (red), mid (yellow), or far (green). The board shows its own result, with no laptop needed to read it.
 
 ---
 
@@ -345,6 +348,7 @@ laptop/live_client.py       laptop: live demo view, full-rate video + prediction
 ml/depth_ml.py              board: DINOv2 embedding, training, calibration, evaluation, live predictor
 ml/export_et.py             board: ExecuTorch export (fp32 / int8), benchmark, accuracy check
 mcu/depth-sensor/sketch.ino MCU: reads the distance sensor, exposes get_distance() over Bridge
+mcu/sketch/sketch.ino       MCU: same get_distance(), plus the LED matrix and RGB LED (live_server.py --led)
 ```
 
 Data (`~/depth_data/`) and trained models (`ml/model/`, `*.pte`) stay on the board and are not in git.
@@ -352,6 +356,54 @@ Data (`~/depth_data/`) and trained models (`ml/model/`, `*.pte`) stay on the boa
 ---
 
 ## How to run
+
+### Quick test (board already set up)
+
+The board already has the venv, the trained model (`~/ml/model/`), and the `mcu/` app, so you only need steps 1 to 6 below to run the live demo. Power the board from a wall charger and plug it into your laptop over USB. Run everything from the repo root.
+
+1. `git pull`, then `adb devices`. The board should be listed.
+2. `adb shell arduino-app-cli app list` should show "Sense the World MCU" as `running`. If it doesn't, run `adb shell arduino-app-cli app start ~/ArduinoApps/sense-the-world`. If you changed `mcu/sketch/`, copy it first: `adb push mcu/sketch/sketch.ino mcu/sketch/sketch.yaml /home/arduino/ArduinoApps/sense-the-world/sketch/`, then start the app.
+3. Optional 5-second MCU check, without the model:
+   ```bash
+   adb shell 'cd ~ && ~/venv/bin/python -c "from collector_server import RouterClient; r = RouterClient(); print(r.call(\"get_distance\")); r.call(\"show_distance\", 450); r.call(\"set_led\", 255, 160, 0)"'
+   ```
+   It prints the sensor reading in mm (-1 if nothing has been in range yet). The LED matrix shows `45` and the RGB LED turns yellow, then after 2 s the matrix goes back to the blinking eye.
+4. Copy the latest server to the board and start it. Keep this terminal open, and wait about a minute for `Live server ready on port 5000`:
+   ```bash
+   adb push linux/live_server.py /home/arduino/live_server.py
+   adb shell 'cd ~ && ~/venv/bin/python -u ~/live_server.py --led'
+   ```
+5. In a second terminal on the laptop:
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/pip install opencv-python
+   adb forward tcp:5000 tcp:5000
+   .venv/bin/python laptop/live_client.py
+   ```
+   Allow camera access when macOS asks. If you run Claude Code in the same terminal app, start the client from a different terminal app: granting camera access means restarting the app, and restarting it ends the Claude Code session.
+6. Hold an object at the green crosshair and move it between ~10 and ~60 cm:
+
+   | Where | What you should see |
+   |---|---|
+   | Window, big text | `Camera: xx cm`: the model's estimate from the camera frame, computed on the board |
+   | Window, small text | `Sensor: xx cm`: the sensor's real reading, and `Error`: the gap between the two |
+   | LED matrix | The camera's estimate in cm |
+   | RGB LED | Red under 30 cm, yellow from 30 to 60 cm, green above 60 cm |
+
+   Cover the sensor with a finger: the window shows `Sensor: covered`, while the camera's estimate and the LEDs keep updating. Press q in the window to quit. Ctrl+C in the board terminal only stops `adb`, and the server keeps running on the board. To stop it: `adb shell "pkill -f '[l]ive_server.py'"`.
+
+Tested on 2026-10-18 with this setup: the model takes ~250 to 500 ms per frame on the board CPU, and a sensor read through the router takes ~7 ms.
+
+<details>
+<summary>Or paste this into Claude Code</summary>
+
+```text
+I'm running the live demo of our hackathon project on an Arduino VENTUNO Q connected to this laptop over USB (adb). Read README.md ("How to run", "Quick test") and mcu/README.md first. Don't change the model, the data, or any code. Just run it. Never use sudo.
+
+Do the "Quick test" steps 1 to 4. Run the board server (step 4) in the background and wait for "Live server ready on port 5000". Then give me the step 5 commands to run in a separate terminal app (the camera window needs camera access there), and tell me what to check in step 6. If something fails, check "Troubleshooting" in README.md before changing anything, and tell me what you found.
+```
+
+</details>
 
 ### 1. Board setup (once)
 
@@ -367,6 +419,8 @@ Copy `linux/*.py` to `~/` and `ml/*.py` to `~/ml/` on the board (`adb push` or `
 ### 2. MCU sketch
 
 Open `mcu/depth-sensor/sketch.ino` in Arduino App Lab (add the Modulino and Arduino_RouterBridge libraries if prompted), plug the Modulino Distance into the Qwiic port, and run the app. Keep it running for every step below.
+
+For the live demo on the board's LEDs, run the `mcu/` app instead (see [mcu/README.md](mcu/README.md)). It provides the same `get_distance()`, and also shows the camera's estimate in cm on the LED matrix, with the RGB LED red (near), yellow (mid), or green (far).
 
 ### 3. Collect data (one session per object)
 
@@ -411,6 +465,7 @@ Board:
 ```bash
 python ~/live_server.py
 ```
+Add `--led` when the `mcu/` app is running, to show the estimate on the LED matrix and RGB LED.
 Laptop:
 ```bash
 adb forward tcp:5000 tcp:5000
@@ -456,9 +511,11 @@ MessagePack-RPC over the router's Unix socket `/var/run/arduino-router.sock`. Re
 | Board LED flashes red | Not enough power; use a wall USB-C PD charger |
 | Sensor reads `-1` | Something must be within range; otherwise power-cycle the board and rerun the App Lab app |
 | `python: command not found` on the board | `source ~/venv/bin/activate` first |
-| `Could not open camera` on macOS | System Settings → Privacy & Security → Camera → enable your terminal app, then quit and reopen it |
+| `Could not open camera` on macOS | System Settings → Privacy & Security → Camera → enable your terminal app, then quit and reopen it. If Claude Code runs in that app, run `live_client.py` from another terminal app instead |
+| LED matrix shows the blinking eye during the live demo | Start `live_server.py` with `--led`, and check that "Sense the World MCU" is the running app (`adb shell arduino-app-cli app list`) |
+| Sensor keeps showing the same number after the object is gone | It keeps its last valid reading while nothing is within range (~1.3 m); put something in front of it |
 | `Connection refused` from a laptop script | Board server not running, or `adb forward tcp:5000 tcp:5000` not run |
-| Port 5000 already in use | Only one of `collector_server.py` / `live_server.py` can run at a time |
+| Port 5000 already in use | Only one of `collector_server.py` / `live_server.py` can run at a time. An old one may still be running after Ctrl+C: `adb shell "pkill -f '[l]ive_server.py'"` (or `[c]ollector_server.py`) |
 | Recordings ended up in the same folder | Restart the board server with a new `--session` name for each object |
 | App Lab app stopped unexpectedly | Starting any app stops the running one; coordinate who owns App Lab |
 | Pasted commands behave strangely in zsh | Don't paste lines containing `#` comments; zsh doesn't treat them as comments interactively |
